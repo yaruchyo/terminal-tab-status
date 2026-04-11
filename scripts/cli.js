@@ -1,0 +1,223 @@
+#!/usr/bin/env node
+
+/**
+ * CLI for opencode-terminal-title.
+ *
+ * Install strategy:
+ *   - "install" (default/global): Copies plugin .ts file and Swift source into
+ *     ~/.config/opencode/plugins/ and compiles the Swift binary.
+ *     OpenCode auto-loads all .ts files from this directory globally.
+ *
+ *   - "install --local": Copies into .opencode/plugins/ in the current project.
+ *
+ *   - "install --npm": Adds package name to opencode.json plugin array
+ *     (requires the package to be published on npm).
+ *
+ * Usage:
+ *   npx opencode-terminal-title install          # Global file-based install (recommended)
+ *   npx opencode-terminal-title install --local   # Project-local file-based install
+ *   npx opencode-terminal-title install --npm     # npm-based install via opencode.json
+ *   npx opencode-terminal-title uninstall         # Remove global install
+ *   npx opencode-terminal-title uninstall --local # Remove project-local install
+ */
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, unlinkSync } from "fs"
+import { join, dirname } from "path"
+import { homedir } from "os"
+import { execFileSync } from "child_process"
+import { fileURLToPath } from "url"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const PACKAGE_DIR = join(__dirname, "..")
+const PLUGIN_FILENAME = "opencode-terminal-title.ts"
+const BINARY_NAME = "active-terminal-tab"
+const SWIFT_SOURCE = "active-terminal-tab.swift"
+
+const args = process.argv.slice(2)
+const command = args[0]
+const isLocal = args.includes("--local")
+const isNpm = args.includes("--npm")
+
+if (!command || command === "help" || command === "--help") {
+  console.log(`
+  opencode-terminal-title - Terminal tab sync for OpenCode
+
+  Usage:
+    npx opencode-terminal-title install           Copy plugin globally (~/.config/opencode/plugins/)
+    npx opencode-terminal-title install --local    Copy plugin to current project (.opencode/plugins/)
+    npx opencode-terminal-title install --npm      Add to opencode.json (requires npm publish)
+    npx opencode-terminal-title uninstall          Remove global plugin
+    npx opencode-terminal-title uninstall --local  Remove from current project
+  `)
+  process.exit(0)
+}
+
+function getTargetDir(local) {
+  if (local) {
+    return join(process.cwd(), ".opencode")
+  }
+  return join(homedir(), ".config", "opencode")
+}
+
+// --- npm mode (legacy: adds to opencode.json) ---
+
+function getConfigPath(local) {
+  if (local) {
+    const dotOpencode = join(process.cwd(), ".opencode", "opencode.json")
+    const root = join(process.cwd(), "opencode.json")
+    if (existsSync(dotOpencode)) return dotOpencode
+    if (existsSync(root)) return root
+    return dotOpencode
+  }
+  return join(homedir(), ".config", "opencode", "opencode.json")
+}
+
+function readConfig(path) {
+  if (!existsSync(path)) return {}
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"))
+  } catch {
+    return {}
+  }
+}
+
+function writeConfig(path, config) {
+  const dir = join(path, "..")
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n")
+}
+
+// --- file mode (default: copies plugin file + binary) ---
+
+function generatePluginFile(binPath) {
+  // Read the source .ts from the package and inject the correct binary path
+  const src = readFileSync(join(PACKAGE_DIR, "src", "index.ts"), "utf-8")
+
+  // Replace the resolveActiveTabBin function with a hardcoded path
+  const modified = src.replace(
+    /const activeTabBin = resolveActiveTabBin\(directory\)/,
+    `const activeTabBin = ${JSON.stringify(binPath)}`
+  )
+
+  // Remove the resolveActiveTabBin function and unused imports
+  return modified
+    .replace(/import \{ execFile \} from "child_process"/, 'import { execFile } from "child_process"')
+    .replace(/import \{ fileURLToPath \} from "url"\n/, "")
+    .replace(/\/\*\*\n \* Resolve the path[\s\S]*$/, "")
+}
+
+function compileBinary(targetDir) {
+  const binDir = join(targetDir, "bin")
+  mkdirSync(binDir, { recursive: true })
+
+  const swiftSrc = join(PACKAGE_DIR, "bin", SWIFT_SOURCE)
+  const binaryDst = join(binDir, BINARY_NAME)
+
+  if (process.platform !== "darwin") {
+    console.log("  Skipping Swift compilation (not macOS). Focus detection disabled.")
+    return null
+  }
+
+  if (!existsSync(swiftSrc)) {
+    console.log("  Swift source not found. Focus detection disabled.")
+    return null
+  }
+
+  // Copy Swift source to target
+  copyFileSync(swiftSrc, join(binDir, SWIFT_SOURCE))
+
+  try {
+    execFileSync("swiftc", [
+      "-O", "-o", binaryDst, swiftSrc,
+      "-framework", "Cocoa", "-framework", "ApplicationServices"
+    ], { stdio: "pipe" })
+    return binaryDst
+  } catch {
+    console.log("  Swift compilation failed. Focus detection disabled.")
+    console.log("  You can compile manually:")
+    console.log(`  swiftc -O -o "${binaryDst}" "${swiftSrc}" -framework Cocoa -framework ApplicationServices`)
+    return null
+  }
+}
+
+// --- main ---
+
+if (command === "install") {
+  if (isNpm) {
+    // npm mode: just edit opencode.json
+    const configPath = getConfigPath(isLocal)
+    const config = readConfig(configPath)
+    if (!config.plugin) config.plugin = []
+    if (config.plugin.includes("opencode-terminal-title")) {
+      console.log(`Already in ${configPath}`)
+      process.exit(0)
+    }
+    config.plugin.push("opencode-terminal-title")
+    writeConfig(configPath, config)
+    const scope = isLocal ? "project" : "global"
+    console.log(`Added "opencode-terminal-title" to ${scope} config: ${configPath}`)
+    console.log(`Restart OpenCode to activate.`)
+  } else {
+    // File mode (default): copy plugin file + compile binary
+    const targetDir = getTargetDir(isLocal)
+    const pluginsDir = join(targetDir, "plugins")
+    mkdirSync(pluginsDir, { recursive: true })
+
+    console.log("Compiling Swift binary...")
+    const binPath = compileBinary(targetDir)
+
+    console.log("Installing plugin file...")
+    // Copy the TypeScript source directly (OpenCode can load .ts files)
+    const srcFile = join(PACKAGE_DIR, "src", "index.ts")
+    const dstFile = join(pluginsDir, PLUGIN_FILENAME)
+    copyFileSync(srcFile, dstFile)
+    console.log(`  -> ${dstFile}`)
+
+    const scope = isLocal ? "project" : "global"
+    console.log(`\nInstalled to ${scope} plugins directory: ${pluginsDir}`)
+    if (binPath) {
+      console.log(`Binary compiled: ${binPath}`)
+    }
+    console.log("Restart OpenCode to activate.")
+  }
+
+} else if (command === "uninstall") {
+  if (isNpm) {
+    const configPath = getConfigPath(isLocal)
+    const config = readConfig(configPath)
+    if (!config.plugin || !config.plugin.includes("opencode-terminal-title")) {
+      console.log(`Not found in ${configPath}`)
+      process.exit(0)
+    }
+    config.plugin = config.plugin.filter((p) => p !== "opencode-terminal-title")
+    if (config.plugin.length === 0) delete config.plugin
+    writeConfig(configPath, config)
+    const scope = isLocal ? "project" : "global"
+    console.log(`Removed "opencode-terminal-title" from ${scope} config: ${configPath}`)
+    console.log(`Restart OpenCode to deactivate.`)
+  } else {
+    const targetDir = getTargetDir(isLocal)
+    const pluginFile = join(targetDir, "plugins", PLUGIN_FILENAME)
+    const binaryFile = join(targetDir, "bin", BINARY_NAME)
+    const swiftFile = join(targetDir, "bin", SWIFT_SOURCE)
+
+    let removed = false
+    for (const f of [pluginFile, binaryFile, swiftFile]) {
+      if (existsSync(f)) {
+        unlinkSync(f)
+        console.log(`Removed: ${f}`)
+        removed = true
+      }
+    }
+    if (!removed) {
+      console.log("Nothing to remove.")
+    } else {
+      console.log("Restart OpenCode to deactivate.")
+    }
+  }
+
+} else {
+  console.error(`Unknown command: ${command}`)
+  console.error(`Run "npx opencode-terminal-title help" for usage.`)
+  process.exit(1)
+}

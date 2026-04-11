@@ -1,0 +1,4 @@
+node_modules/
+dist/
+bin/active-terminal-tab
+!bin/active-terminal-tab.swift

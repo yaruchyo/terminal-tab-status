@@ -1,0 +1,53 @@
+{
+  "name": "opencode-terminal-title",
+  "version": "1.0.0",
+  "description": "OpenCode plugin that syncs terminal tab names with session titles. Animated spinner while AI processes, checkmark when done, auto-clears on tab focus.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "opencode-terminal-title": "scripts/cli.js"
+  },
+  "files": [
+    "dist",
+    "bin/active-terminal-tab.swift",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "terminal",
+    "tab-title",
+    "jetbrains",
+    "pycharm",
+    "intellij",
+    "spinner",
+    "session"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.4.3",
+    "@types/node": "^25.6.0",
+    "typescript": "^5.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ]
+}
