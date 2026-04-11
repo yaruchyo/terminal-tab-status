@@ -12,7 +12,7 @@ See at a glance which AI session is running, finished, or idle — across all yo
 | **Running** | `⠋ Session Title` | AI is processing (animated spinner) |
 | **Done** | `✓ Session Title` | AI finished responding |
 
-The checkmark automatically disappears when you switch to that terminal tab (macOS only — uses the Accessibility API to detect tab focus).
+The checkmark automatically disappears when you switch to that terminal tab (macOS — uses the Accessibility API to detect tab focus across all major terminals).
 
 ## Install
 
@@ -26,7 +26,7 @@ That's it. Restart OpenCode.
 
 This copies the plugin file into `~/.config/opencode/plugins/` (which OpenCode auto-loads globally) and compiles the Swift binary for focus detection.
 
-> **macOS note**: On first run, macOS will prompt you to grant Accessibility access to your terminal application. This is required for focus detection — the Swift binary ([source](bin/active-terminal-tab.swift), 55 lines) reads only the active tab name from the JetBrains IDE UI tree. It cannot read terminal content, keystrokes, or data from other apps. The permission is granted to the terminal app, not this binary specifically. If you prefer not to grant it, deny the prompt — everything still works, the checkmark just clears on your next message instead of on tab switch.
+> **macOS note**: On first run, macOS will prompt you to grant Accessibility access to your terminal application. This is required for focus detection — the Swift binary ([source](bin/active-terminal-tab.swift)) reads only the active tab/window title from your terminal app. It cannot read terminal content, keystrokes, or data from other apps. The permission is granted to the terminal app, not this binary specifically. If you prefer not to grant it, deny the prompt — everything still works, the checkmark just clears on your next message instead of on tab switch.
 
 To install for a single project only:
 
@@ -63,7 +63,7 @@ JetBrains terminals require one extra setting to allow processes to set tab titl
 4. **Enable** the checkbox
 5. Restart the terminal
 
-Other terminals (iTerm2, Ghostty, Kitty, Wezterm, Terminal.app, VS Code) work out of the box.
+Other terminals (Terminal.app, iTerm2, Ghostty, Kitty, Wezterm, VS Code) work out of the box — no extra setup needed.
 
 ## macOS focus detection setup
 
@@ -82,7 +82,20 @@ The Swift binary is compiled automatically during install (requires Xcode Comman
 
 3. **Checkmark**: On `session.idle`, shows `✓` prefix if the tab is not focused. If the tab is focused, shows plain title.
 
-4. **Focus detection** (macOS + JetBrains): A compiled Swift binary queries the macOS Accessibility API to read the active terminal tab name from the JetBrains IDE's UI tree. The plugin polls every 500ms while the checkmark is visible.
+4. **Focus detection** (macOS): A compiled Swift binary queries the macOS Accessibility API to detect the active terminal tab. It auto-detects which terminal is frontmost and uses the appropriate strategy:
+
+   | Terminal | Detection method |
+   |---|---|
+   | JetBrains IDEs | Reads `AXDescription` from the Terminal tool window group |
+   | Terminal.app | Reads `AXTitle` from the focused window (format: `user — title — process — WxH`) |
+   | iTerm2 | Reads `AXTitle` from the focused window |
+   | VS Code | Reads `AXTitle` from the focused window |
+   | Ghostty | Reads `AXTitle` from the focused window |
+   | Kitty | Reads `AXTitle` from the focused window |
+   | Wezterm | Reads `AXTitle` from the focused window |
+   | Other | Falls back to frontmost app's window title |
+
+   The binary is ~68ms per invocation, polls every 500ms, and only runs while the checkmark is visible.
 
 ### Why `/dev/tty`?
 
@@ -90,23 +103,24 @@ OpenCode runs a TUI that owns `process.stdout`. Writing escape sequences to stdo
 
 ### Why a Swift binary?
 
-JetBrains terminals don't support ANSI focus reporting (`\x1b[?1004h`). The only way to detect which tab is active is to query the macOS Accessibility API, which requires native code. The binary is ~68ms per invocation and only runs while the checkmark is visible.
+JetBrains terminals don't support ANSI focus reporting (`\x1b[?1004h`). The only cross-terminal way to detect which tab is active is to query the macOS Accessibility API, which requires native code.
 
 ## Compatibility
 
 | Terminal | Title sync | Spinner | Focus detection |
 |---|---|---|---|
 | PyCharm / IntelliJ (macOS) | Yes* | Yes | Yes |
-| iTerm2 | Yes | Yes | No** |
-| Terminal.app | Yes | Yes | No** |
-| Ghostty / Kitty / Wezterm | Yes | Yes | No** |
-| VS Code terminal | Yes | Yes | No** |
-| Linux terminals | Yes | Yes | No*** |
+| Terminal.app (macOS) | Yes | Yes | Yes |
+| iTerm2 (macOS) | Yes | Yes | Yes |
+| Ghostty (macOS) | Yes | Yes | Yes |
+| Kitty (macOS) | Yes | Yes | Yes |
+| Wezterm (macOS) | Yes | Yes | Yes |
+| VS Code terminal (macOS) | Yes | Yes | Yes |
+| Linux terminals | Yes | Yes | No** |
 | CI environments | No | No | No |
 
 \* Requires `terminal.show.application.title` Advanced Setting enabled.
-\*\* Checkmark clears when you send the next message instead of on tab focus.
-\*\*\* Accessibility API is macOS-only. PRs welcome for Linux focus detection.
+\*\* Accessibility API is macOS-only. PRs welcome for Linux focus detection (e.g. via `xdotool`).
 
 ## Manual Swift compilation
 
@@ -117,6 +131,18 @@ swiftc -O \
   -o ~/.config/opencode/bin/active-terminal-tab \
   ~/.config/opencode/bin/active-terminal-tab.swift \
   -framework Cocoa -framework ApplicationServices
+```
+
+You can also test the binary directly:
+
+```bash
+# Auto-detect frontmost terminal
+~/.config/opencode/bin/active-terminal-tab
+
+# Force a specific terminal type
+~/.config/opencode/bin/active-terminal-tab jetbrains
+~/.config/opencode/bin/active-terminal-tab apple_terminal
+~/.config/opencode/bin/active-terminal-tab iterm2
 ```
 
 ## What gets installed
