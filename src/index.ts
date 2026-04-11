@@ -131,35 +131,58 @@ export const TerminalTitlePlugin: Plugin = async ({ directory, client }) => {
   }
 
   // Check if our tab matches the active tab name.
-  // The AX tree may truncate long names with "…" (e.g. "✓ New Docker c…x architrecture").
-  // We need to match both the plain title and the "✓ " prefixed version, accounting for truncation.
+  //
+  // The AX tree returns different formats depending on the terminal:
+  //   JetBrains: just the tab name (possibly truncated with "…")
+  //   Terminal.app: "user — tab_title — process — WxH"
+  //   iTerm2/Ghostty/Kitty/Wezterm: usually just the window title (= our OSC title)
+  //
+  // We also need to handle:
+  //   - "✓ " or spinner prefix on JetBrains tab names
+  //   - Truncation with "…" on JetBrains tab names
   function isOurTabActive(activeTabName: string): boolean {
     if (!activeTabName) return false
 
-    // Strip the checkmark/spinner prefix from the AX name for comparison
-    // Spinner frames are single Braille chars (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) followed by space
+    // Build the title variants we're looking for
+    const title = currentTitle
+    const checkTitle = `\u2713 ${title}`
+
+    // Helper: check if a candidate string matches our title
+    function matches(candidate: string): boolean {
+      // Exact match
+      if (candidate === title || candidate === checkTitle) return true
+
+      // Starts with our title
+      if (candidate.startsWith(title) || candidate.startsWith(checkTitle)) return true
+
+      // Handle truncation: "Some long ti…end of title"
+      const truncIdx = candidate.indexOf("\u2026")
+      if (truncIdx > 0) {
+        const prefix = candidate.substring(0, truncIdx)
+        if (title.startsWith(prefix) || checkTitle.startsWith(prefix)) return true
+      }
+
+      return false
+    }
+
+    // Direct match on the raw AX name
+    if (matches(activeTabName)) return true
+
+    // Strip spinner/checkmark prefix (JetBrains shows these in the tab name)
     const stripped = activeTabName.replace(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✓] /, "")
+    if (stripped !== activeTabName && matches(stripped)) return true
 
-    // Exact match (with or without prefix)
-    if (stripped === currentTitle || activeTabName === currentTitle) return true
-
-    // The AX name starts with our title (no truncation)
-    if (stripped.startsWith(currentTitle) || activeTabName.startsWith(currentTitle)) return true
-
-    // Handle truncation: AX shows "Some long ti…end of title"
-    // Extract the part before "…" and check if our title starts with it
-    const truncIdx = stripped.indexOf("\u2026")
-    if (truncIdx > 0) {
-      const prefix = stripped.substring(0, truncIdx)
-      if (currentTitle.startsWith(prefix)) return true
+    // Terminal.app format: "user — title — process — WxH"
+    // Check if any segment between " — " separators contains our title
+    if (activeTabName.includes(" \u2014 ")) {
+      const segments = activeTabName.split(" \u2014 ")
+      for (const seg of segments) {
+        if (matches(seg.trim())) return true
+      }
     }
 
-    // Same check on the raw activeTabName (in case it has no spinner/checkmark prefix)
-    const rawTruncIdx = activeTabName.indexOf("\u2026")
-    if (rawTruncIdx > 0) {
-      const prefix = activeTabName.substring(0, rawTruncIdx)
-      if (currentTitle.startsWith(prefix)) return true
-    }
+    // Generic: our title appears anywhere in the window title
+    if (activeTabName.includes(title)) return true
 
     return false
   }
