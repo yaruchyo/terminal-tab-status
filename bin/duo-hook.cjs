@@ -22,7 +22,10 @@ const isLikelyDuo =
 
 if (!isLikelyDuo) return;
 
-const FRAMES = ["\u280B", "\u2819", "\u2839", "\u2838", "\u283C", "\u2834", "\u2826", "\u2827", "\u2807", "\u280F"];
+// Save the ORIGINAL fs.writeSync BEFORE any patching
+const _origWriteSync = fs.writeSync;
+
+const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const home = process.env.HOME || "";
 const activeTabBin = [
   path.join(home, ".config", "opencode", "bin", "active-terminal-tab"),
@@ -46,11 +49,12 @@ function sanitize(text) {
   return text.replace(/[\x00-\x1f\x7f]/g, "");
 }
 
+// Write title using the ORIGINAL writeSync — never goes through our interceptor
 function writeTitle(text) {
   if (ttyFd === null) return;
   try {
     const safe = sanitize(text);
-    fs.writeSync(ttyFd, `\x1b]2;${safe}\x07\x1b]0;${safe}\x07`);
+    _origWriteSync(ttyFd, `\x1b]2;${safe}\x07\x1b]0;${safe}\x07`);
   } catch { /* ignore */ }
 }
 
@@ -69,17 +73,17 @@ function unref(timer) {
 function startSpinner() {
   stopSpinner();
   frameIndex = 0;
-  writeTitle(`${FRAMES[0]} ${currentTitle}`);
+  writeTitle(FRAMES[0] + " " + currentTitle);
   spinnerInterval = setInterval(() => {
     frameIndex = (frameIndex + 1) % FRAMES.length;
-    writeTitle(`${FRAMES[frameIndex]} ${currentTitle}`);
+    writeTitle(FRAMES[frameIndex] + " " + currentTitle);
   }, 100);
   unref(spinnerInterval);
 }
 
 function showDone() {
   stopSpinner();
-  writeTitle(`\u2713 ${currentTitle}`);
+  writeTitle("✓ " + currentTitle);
   startFocusPoll();
 }
 
@@ -100,17 +104,36 @@ function getActiveTabName() {
 
 function isOurTabActive(name) {
   if (!name) return false;
-  if (name === currentTitle || name === `\u2713 ${currentTitle}`) return true;
-  if (name.includes(currentTitle)) return true;
-  const stripped = name.replace(/^[\u280B\u2819\u2839\u2838\u283C\u2834\u2826\u2827\u2807\u280F\u2713] /, "");
-  if (stripped === currentTitle || stripped.startsWith(currentTitle)) return true;
-  if (name.includes(" \u2014 ")) {
-    for (const seg of name.split(" \u2014 ")) {
-      if (seg.trim() === currentTitle || currentTitle.startsWith(seg.trim())) return true;
+  const title = currentTitle;
+  const checkTitle = "✓ " + title;
+
+  function matches(candidate) {
+    if (candidate === title || candidate === checkTitle) return true;
+    if (candidate.startsWith(title) || candidate.startsWith(checkTitle)) return true;
+    const ti = candidate.indexOf("…");
+    if (ti > 0) {
+      const prefix = candidate.substring(0, ti);
+      if (title.startsWith(prefix) || checkTitle.startsWith(prefix)) return true;
+    }
+    return false;
+  }
+
+  if (matches(name)) return true;
+
+  // Strip spinner/checkmark prefix
+  const stripped = name.replace(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✓] /, "");
+  if (stripped !== name && matches(stripped)) return true;
+
+  // Terminal.app: "user — title — process — WxH"
+  if (name.includes(" — ")) {
+    for (const seg of name.split(" — ")) {
+      if (matches(seg.trim())) return true;
     }
   }
-  const ti = stripped.indexOf("\u2026");
-  if (ti > 0 && currentTitle.startsWith(stripped.substring(0, ti))) return true;
+
+  // Substring
+  if (name.includes(title)) return true;
+
   return false;
 }
 
@@ -127,9 +150,15 @@ function startFocusPoll() {
   unref(focusPollInterval);
 }
 
-// --- Intercept fs.writeSync (CJS module is mutable) ---
-const origWriteSync = fs.writeSync;
+// --- Intercept fs.writeSync to detect TerminalProgressService's OSC 9;4 ---
+// IMPORTANT: we use _origWriteSync (saved above) in writeTitle() so our own
+// title writes never trigger this interceptor — preventing infinite recursion.
 fs.writeSync = function patchedWriteSync(fd) {
+  // Skip interception for our own ttyFd writes
+  if (fd === ttyFd) {
+    return _origWriteSync.apply(this, arguments);
+  }
+
   const data = arguments[1];
   if (typeof data === "string") {
     // Detect OSC 9;4 from TerminalProgressService
@@ -147,19 +176,12 @@ fs.writeSync = function patchedWriteSync(fd) {
     } else if (data.includes("9;4;2")) {
       if (state === "busy") { state = "idle"; showPlain(); }
     }
-
-    // Detect OSC 0 title
-    const m = data.match(/\x1b\]0;([^\x07]*)\x07/);
-    if (m && m[1] && m[1] !== "GitLab Duo CLI" && m[1] !== "") {
-      currentTitle = m[1];
-      if (state === "idle") writeTitle(currentTitle);
-    }
   }
 
-  return origWriteSync.apply(fs, arguments);
+  return _origWriteSync.apply(this, arguments);
 };
 
-// --- Intercept stderr.write for title (ChatInterface.tsx writes via stderr) ---
+// --- Intercept stderr.write to capture session title ---
 const origStderrWrite = process.stderr.write;
 process.stderr.write = function patchedWrite(chunk) {
   const str = typeof chunk === "string" ? chunk : (chunk && chunk.toString ? chunk.toString() : "");
