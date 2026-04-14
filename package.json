@@ -1,7 +1,7 @@
 {
   "name": "terminal-tab-status",
   "version": "1.0.0",
-  "description": "OpenCode plugin that syncs terminal tab names with session titles. Animated spinner while AI processes, checkmark when done, auto-clears on tab focus.",
+  "description": "Terminal tab title sync for AI CLI tools (OpenCode, GitLab Duo). Animated spinner while AI processes, checkmark when done, auto-clears on tab focus.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -10,7 +10,9 @@
   },
   "files": [
     "dist",
+    "src/standalone-plugin.ts",
     "bin/active-terminal-tab.swift",
+    "bin/duo-hook.cjs",
     "scripts"
   ],
   "scripts": {
@@ -21,6 +23,8 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
+    "gitlab-duo",
+    "duo-cli",
     "terminal",
     "tab-title",
     "jetbrains",

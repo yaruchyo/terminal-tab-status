@@ -2,10 +2,10 @@
 # Adds spinner/checkmark to terminal tab based on Duo CLI log output.
 # Source this file or add to ~/.zshrc
 #
-# Managed by: opencode-terminal-title
+# Managed by: terminal-tab-status
 # Do not edit between the markers below — changes will be overwritten by install/uninstall.
 
-# --- BEGIN opencode-terminal-title ---
+# --- BEGIN terminal-tab-status ---
 _tt_duo_log_dir="${TMPDIR:-/tmp}gitlab-duo-cli"
 _tt_bin_dir="${HOME}/.config/opencode/bin"
 
@@ -89,4 +89,4 @@ duo() {
 
   return $exit_code
 }
-# --- END opencode-terminal-title ---
+# --- END terminal-tab-status ---

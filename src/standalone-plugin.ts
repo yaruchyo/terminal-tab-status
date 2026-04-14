@@ -309,7 +309,7 @@ function resolveActiveTabBin(directory: string): string | null {
   const binary = "active-terminal-tab"
 
   // 1. Sibling bin/ relative to the plugin file (file-based install)
-  //    e.g. ~/.config/opencode/plugins/opencode-terminal-title.ts -> ~/.config/opencode/bin/
+  //    e.g. ~/.config/opencode/plugins/terminal-tab-status.ts -> ~/.config/opencode/bin/
   try {
     const pluginDir = dirname(fileURLToPath(import.meta.url))
     const siblingBin = join(pluginDir, "..", "bin", binary)
