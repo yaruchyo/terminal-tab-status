@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * CLI for opencode-terminal-title.
+ * CLI for terminal-tab-status.
  *
  * Install strategy:
  *   - "install" (default/global): Copies plugin .ts file and Swift source into
@@ -14,11 +14,11 @@
  *     (requires the package to be published on npm).
  *
  * Usage:
- *   npx opencode-terminal-title install          # Global file-based install (recommended)
- *   npx opencode-terminal-title install --local   # Project-local file-based install
- *   npx opencode-terminal-title install --npm     # npm-based install via opencode.json
- *   npx opencode-terminal-title uninstall         # Remove global install
- *   npx opencode-terminal-title uninstall --local # Remove project-local install
+ *   npx terminal-tab-status install          # Global file-based install (recommended)
+ *   npx terminal-tab-status install --local   # Project-local file-based install
+ *   npx terminal-tab-status install --npm     # npm-based install via opencode.json
+ *   npx terminal-tab-status uninstall         # Remove global install
+ *   npx terminal-tab-status uninstall --local # Remove project-local install
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, unlinkSync } from "fs"
@@ -29,7 +29,7 @@ import { fileURLToPath } from "url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_DIR = join(__dirname, "..")
-const PLUGIN_FILENAME = "opencode-terminal-title.ts"
+const PLUGIN_FILENAME = "terminal-tab-status.ts"
 const BINARY_NAME = "active-terminal-tab"
 const SWIFT_SOURCE = "active-terminal-tab.swift"
 
@@ -40,14 +40,14 @@ const isNpm = args.includes("--npm")
 
 if (!command || command === "help" || command === "--help") {
   console.log(`
-  opencode-terminal-title - Terminal tab sync for OpenCode
+  terminal-tab-status - Terminal tab sync for OpenCode
 
   Usage:
-    npx opencode-terminal-title install           Copy plugin globally (~/.config/opencode/plugins/)
-    npx opencode-terminal-title install --local    Copy plugin to current project (.opencode/plugins/)
-    npx opencode-terminal-title install --npm      Add to opencode.json (requires npm publish)
-    npx opencode-terminal-title uninstall          Remove global plugin
-    npx opencode-terminal-title uninstall --local  Remove from current project
+    npx terminal-tab-status install           Copy plugin globally (~/.config/opencode/plugins/)
+    npx terminal-tab-status install --local    Copy plugin to current project (.opencode/plugins/)
+    npx terminal-tab-status install --npm      Add to opencode.json (requires npm publish)
+    npx terminal-tab-status uninstall          Remove global plugin
+    npx terminal-tab-status uninstall --local  Remove from current project
   `)
   process.exit(0)
 }
@@ -148,14 +148,14 @@ if (command === "install") {
     const configPath = getConfigPath(isLocal)
     const config = readConfig(configPath)
     if (!config.plugin) config.plugin = []
-    if (config.plugin.includes("opencode-terminal-title")) {
+    if (config.plugin.includes("terminal-tab-status")) {
       console.log(`Already in ${configPath}`)
       process.exit(0)
     }
-    config.plugin.push("opencode-terminal-title")
+    config.plugin.push("terminal-tab-status")
     writeConfig(configPath, config)
     const scope = isLocal ? "project" : "global"
-    console.log(`Added "opencode-terminal-title" to ${scope} config: ${configPath}`)
+    console.log(`Added "terminal-tab-status" to ${scope} config: ${configPath}`)
     console.log(`Restart OpenCode to activate.`)
   } else {
     // File mode (default): copy plugin file + compile binary
@@ -185,15 +185,15 @@ if (command === "install") {
   if (isNpm) {
     const configPath = getConfigPath(isLocal)
     const config = readConfig(configPath)
-    if (!config.plugin || !config.plugin.includes("opencode-terminal-title")) {
+    if (!config.plugin || !config.plugin.includes("terminal-tab-status")) {
       console.log(`Not found in ${configPath}`)
       process.exit(0)
     }
-    config.plugin = config.plugin.filter((p) => p !== "opencode-terminal-title")
+    config.plugin = config.plugin.filter((p) => p !== "terminal-tab-status")
     if (config.plugin.length === 0) delete config.plugin
     writeConfig(configPath, config)
     const scope = isLocal ? "project" : "global"
-    console.log(`Removed "opencode-terminal-title" from ${scope} config: ${configPath}`)
+    console.log(`Removed "terminal-tab-status" from ${scope} config: ${configPath}`)
     console.log(`Restart OpenCode to deactivate.`)
   } else {
     const targetDir = getTargetDir(isLocal)
@@ -218,6 +218,6 @@ if (command === "install") {
 
 } else {
   console.error(`Unknown command: ${command}`)
-  console.error(`Run "npx opencode-terminal-title help" for usage.`)
+  console.error(`Run "npx terminal-tab-status help" for usage.`)
   process.exit(1)
 }

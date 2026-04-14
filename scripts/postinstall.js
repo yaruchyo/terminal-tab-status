@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Postinstall script for opencode-terminal-title.
+ * Postinstall script for terminal-tab-status.
  *
  * On macOS: compiles the Swift binary for terminal focus detection.
  * On other platforms: skips gracefully (focus detection is macOS-only).
@@ -19,36 +19,36 @@ const binaryPath = join(binDir, "active-terminal-tab")
 
 if (process.platform !== "darwin") {
   console.log(
-    "[opencode-terminal-title] Skipping Swift compilation (not macOS). Focus detection disabled.",
+    "[terminal-tab-status] Skipping Swift compilation (not macOS). Focus detection disabled.",
   )
   process.exit(0)
 }
 
 if (existsSync(binaryPath)) {
-  console.log("[opencode-terminal-title] Binary already compiled.")
+  console.log("[terminal-tab-status] Binary already compiled.")
   process.exit(0)
 }
 
 if (!existsSync(swiftSource)) {
   console.warn(
-    "[opencode-terminal-title] Swift source not found. Focus detection disabled.",
+    "[terminal-tab-status] Swift source not found. Focus detection disabled.",
   )
   process.exit(0)
 }
 
 try {
-  console.log("[opencode-terminal-title] Compiling Swift binary for focus detection...")
+  console.log("[terminal-tab-status] Compiling Swift binary for focus detection...")
   execFileSync("swiftc", [
     "-O", "-o", binaryPath, swiftSource,
     "-framework", "Cocoa", "-framework", "ApplicationServices"
   ], { stdio: "inherit" })
-  console.log("[opencode-terminal-title] Done.")
+  console.log("[terminal-tab-status] Done.")
 } catch (err) {
   console.warn(
-    "[opencode-terminal-title] Swift compilation failed. Focus detection disabled.",
+    "[terminal-tab-status] Swift compilation failed. Focus detection disabled.",
   )
   console.warn(
-    "[opencode-terminal-title] You can compile manually: swiftc -O -o bin/active-terminal-tab bin/active-terminal-tab.swift -framework Cocoa -framework ApplicationServices",
+    "[terminal-tab-status] You can compile manually: swiftc -O -o bin/active-terminal-tab bin/active-terminal-tab.swift -framework Cocoa -framework ApplicationServices",
   )
   // Don't fail the install
   process.exit(0)

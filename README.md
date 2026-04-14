@@ -1,4 +1,4 @@
-# opencode-terminal-title
+# terminal-tab-status
 
 OpenCode plugin that syncs terminal tab names with session titles.
 
@@ -19,7 +19,7 @@ The checkmark automatically disappears when you switch to that terminal tab (mac
 One command — installs globally across all your projects:
 
 ```bash
-npx opencode-terminal-title install
+npx terminal-tab-status install
 ```
 
 That's it. Restart OpenCode.
@@ -31,7 +31,7 @@ This copies the plugin file into `~/.config/opencode/plugins/` (which OpenCode a
 To install for a single project only:
 
 ```bash
-npx opencode-terminal-title install --local
+npx terminal-tab-status install --local
 ```
 
 This copies into `.opencode/plugins/` in the current project.
@@ -39,8 +39,8 @@ This copies into `.opencode/plugins/` in the current project.
 To uninstall:
 
 ```bash
-npx opencode-terminal-title uninstall
-npx opencode-terminal-title uninstall --local  # for project-local
+npx terminal-tab-status uninstall
+npx terminal-tab-status uninstall --local  # for project-local
 ```
 
 ### Alternative: npm-based install
@@ -48,10 +48,10 @@ npx opencode-terminal-title uninstall --local  # for project-local
 If you prefer the npm plugin approach (requires the package to be published on npm):
 
 ```bash
-npx opencode-terminal-title install --npm
+npx terminal-tab-status install --npm
 ```
 
-This adds `"opencode-terminal-title"` to `~/.config/opencode/opencode.json` and OpenCode auto-installs it from npm on startup.
+This adds `"terminal-tab-status"` to `~/.config/opencode/opencode.json` and OpenCode auto-installs it from npm on startup.
 
 ## JetBrains IDE setup (PyCharm, IntelliJ, etc.)
 
@@ -147,23 +147,23 @@ You can also test the binary directly:
 
 ## What gets installed
 
-### Global install (`npx opencode-terminal-title install`)
+### Global install (`npx terminal-tab-status install`)
 
 ```
 ~/.config/opencode/
 ├── plugins/
-│   └── opencode-terminal-title.ts    # Plugin (auto-loaded by OpenCode)
+│   └── terminal-tab-status.ts    # Plugin (auto-loaded by OpenCode)
 └── bin/
     ├── active-terminal-tab           # Compiled Swift binary
     └── active-terminal-tab.swift     # Swift source
 ```
 
-### Project install (`npx opencode-terminal-title install --local`)
+### Project install (`npx terminal-tab-status install --local`)
 
 ```
 .opencode/
 ├── plugins/
-│   └── opencode-terminal-title.ts
+│   └── terminal-tab-status.ts
 └── bin/
     ├── active-terminal-tab
     └── active-terminal-tab.swift
@@ -173,8 +173,8 @@ You can also test the binary directly:
 
 ```bash
 # Clone
-git clone https://github.com/yourname/opencode-terminal-title
-cd opencode-terminal-title
+git clone https://gitlab.com/yaruchyk.o/terminal-tab-status.git
+cd terminal-tab-status
 
 # Install deps
 npm install
