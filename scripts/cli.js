@@ -166,19 +166,49 @@ if (command === "install") {
     console.log("Compiling Swift binary...")
     const binPath = compileBinary(targetDir)
 
-    console.log("Installing plugin file...")
-    // Copy the TypeScript source directly (OpenCode can load .ts files)
-    const srcFile = join(PACKAGE_DIR, "src", "index.ts")
+    console.log("Installing OpenCode plugin...")
+    const srcFile = join(PACKAGE_DIR, "src", "standalone-plugin.ts")
     const dstFile = join(pluginsDir, PLUGIN_FILENAME)
     copyFileSync(srcFile, dstFile)
     console.log(`  -> ${dstFile}`)
 
-    const scope = isLocal ? "project" : "global"
-    console.log(`\nInstalled to ${scope} plugins directory: ${pluginsDir}`)
-    if (binPath) {
-      console.log(`Binary compiled: ${binPath}`)
+    // Install Duo CLI hook (CJS module injected via NODE_OPTIONS --require)
+    const hookSrc = join(PACKAGE_DIR, "bin", "duo-hook.cjs")
+    const hookDst = join(targetDir, "bin", "duo-hook.cjs")
+    if (existsSync(hookSrc)) {
+      const binDir = join(targetDir, "bin")
+      mkdirSync(binDir, { recursive: true })
+      copyFileSync(hookSrc, hookDst)
+      console.log(`Duo CLI hook: ${hookDst}`)
     }
-    console.log("Restart OpenCode to activate.")
+
+    // Check if NODE_OPTIONS is already configured for duo hook
+    const zshrcPath = join(homedir(), ".zshrc")
+    const hookLine = `export NODE_OPTIONS="\${NODE_OPTIONS} --require ${hookDst}"`
+    const marker = "# opencode-terminal-title: duo-hook"
+    let zshrcUpdated = false
+
+    if (!isLocal && existsSync(hookDst)) {
+      const zshrc = existsSync(zshrcPath) ? readFileSync(zshrcPath, "utf-8") : ""
+      if (!zshrc.includes(marker)) {
+        const entry = `\n${marker}\n${hookLine}\n`
+        writeFileSync(zshrcPath, zshrc + entry)
+        zshrcUpdated = true
+      }
+    }
+
+    const scope = isLocal ? "project" : "global"
+    console.log(`\n=== Installed (${scope}) ===`)
+    if (binPath) console.log(`Focus binary:    ${binPath}`)
+    console.log(`OpenCode plugin: ${dstFile}`)
+    if (existsSync(hookDst)) console.log(`Duo CLI hook:    ${hookDst}`)
+    console.log("")
+    console.log("OpenCode: restart to activate.")
+    if (zshrcUpdated) {
+      console.log("Duo CLI:  run 'source ~/.zshrc' or restart terminal to activate.")
+    } else if (existsSync(hookDst)) {
+      console.log("Duo CLI:  already configured in ~/.zshrc")
+    }
   }
 
 } else if (command === "uninstall") {
@@ -200,19 +230,40 @@ if (command === "install") {
     const pluginFile = join(targetDir, "plugins", PLUGIN_FILENAME)
     const binaryFile = join(targetDir, "bin", BINARY_NAME)
     const swiftFile = join(targetDir, "bin", SWIFT_SOURCE)
+    const hookFile = join(targetDir, "bin", "duo-hook.cjs")
 
     let removed = false
-    for (const f of [pluginFile, binaryFile, swiftFile]) {
+    for (const f of [pluginFile, binaryFile, swiftFile, hookFile]) {
       if (existsSync(f)) {
         unlinkSync(f)
         console.log(`Removed: ${f}`)
         removed = true
       }
     }
+
+    // Remove duo hook line from ~/.zshrc
+    const zshrcPath = join(homedir(), ".zshrc")
+    const marker = "# opencode-terminal-title: duo-hook"
+    if (!isLocal && existsSync(zshrcPath)) {
+      const zshrc = readFileSync(zshrcPath, "utf-8")
+      if (zshrc.includes(marker)) {
+        const lines = zshrc.split("\n")
+        const filtered = lines.filter((line, i) => {
+          if (line.includes(marker)) return false
+          // Also remove the NODE_OPTIONS line that follows the marker
+          if (i > 0 && lines[i - 1].includes(marker)) return false
+          return true
+        })
+        writeFileSync(zshrcPath, filtered.join("\n").replace(/\n{3,}/g, "\n\n"))
+        console.log(`Removed duo hook from ~/.zshrc`)
+        removed = true
+      }
+    }
+
     if (!removed) {
       console.log("Nothing to remove.")
     } else {
-      console.log("Restart OpenCode to deactivate.")
+      console.log("Restart terminals to deactivate.")
     }
   }
 
