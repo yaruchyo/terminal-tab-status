@@ -1,6 +1,6 @@
 {
   "name": "terminal-tab-status",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Terminal tab title sync for AI CLI tools (OpenCode, GitLab Duo). Animated spinner while AI processes, checkmark when done, auto-clears on tab focus.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -33,8 +33,12 @@
     "spinner",
     "session"
   ],
-  "author": "",
+  "author": "yaruchyk",
   "license": "MIT",
+  "homepage": "https://gitlab.com/yaruchyk.o/terminal-tab-status",
+  "bugs": {
+    "url": "https://gitlab.com/yaruchyk.o/terminal-tab-status/-/issues"
+  },
   "peerDependencies": {
     "@opencode-ai/plugin": "*"
   },
