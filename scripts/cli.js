@@ -199,17 +199,17 @@ if (!isUninstall) {
       removed = true
     }
 
-    // Remove duo hook from ~/.zshrc
+    // Remove duo hook from ~/.zshrc (handle both old and new marker names)
     if (!isLocal) {
       const zshrcPath = join(homedir(), ".zshrc")
-      const marker = "# terminal-tab-status: duo-hook"
+      const markers = ["# terminal-tab-status: duo-hook", "# opencode-terminal-title: duo-hook"]
       if (existsSync(zshrcPath)) {
         const zshrc = readFileSync(zshrcPath, "utf-8")
-        if (zshrc.includes(marker)) {
+        if (markers.some((m) => zshrc.includes(m))) {
           const lines = zshrc.split("\n")
           const filtered = lines.filter((line, i) => {
-            if (line.includes(marker)) return false
-            if (i > 0 && lines[i - 1].includes(marker)) return false
+            if (markers.some((m) => line.includes(m))) return false
+            if (i > 0 && markers.some((m) => lines[i - 1].includes(m))) return false
             return true
           })
           writeFileSync(zshrcPath, filtered.join("\n").replace(/\n{3,}/g, "\n\n"))
