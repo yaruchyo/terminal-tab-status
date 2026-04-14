@@ -55,7 +55,7 @@ The hook is loaded into every Node.js process via `--require`, but **immediately
 - Intercepts `process.stderr.write` to capture the session title set via OSC 0
 - Writes enhanced titles (spinner/checkmark) to its own `/dev/tty` file descriptor
 
-**No modifications to Duo CLI source.** No monkey-patching of Duo internals. The hook reads the same escape sequences Duo already writes, then overlays its own.
+**No modifications to Duo CLI source.** The hook reads the same escape sequences Duo already writes, then overlays its own. This approach is necessary because the Duo CLI has no external plugin or event API -- the [LSP server](https://gitlab.com/gitlab-org/editor-extensions/gitlab-lsp) only runs inside IDE extensions (VS Code, JetBrains), not the CLI, leaving raw escape sequence interception as the only integration path ([feature request](https://gitlab.com/gl-demo-ultimate-oyaruchyk/gitlab.com/gitlab-lsp/-/issues/1)).
 
 ### Shared: focus detection (macOS)
 
